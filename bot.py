@@ -9,7 +9,7 @@ from telegram.constants import ParseMode
 # ================= সেটিংস =================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
-BOT_USERNAME = "@SFN_MiningBot"
+BOT_USERNAME = "@SFN_TransactionBot"
 # ==========================================
 
 NAMES = [
