@@ -2,15 +2,14 @@ import random
 import string
 import datetime
 import os
+import json
 import asyncio
 from telegram import Bot
 from telegram.constants import ParseMode
 
-# ================= সেটিংস =================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
 BOT_USERNAME = "@SFN_MiningBot"
-# ==========================================
 
 NAMES = [
     "Liam Smith", "Zayd V.", "Aarav Sharma", "Budi Santoso", "Rahul Das",
@@ -35,6 +34,7 @@ NFTS = [
 
 NETWORKS = ["TON", "TRC20", "ERC20", "BNB Smart Chain (BEP20)", "SOL", "POL"]
 ASSET = "USDT"
+PENDING_FILE = "pending.json"
 
 def generate_uid():
     return f"62{''.join(random.choices(string.digits, k=7))}"
@@ -42,107 +42,173 @@ def generate_uid():
 def generate_txid():
     return ''.join(random.choices("0123456789abcdef", k=64))
 
+def load_pending():
+    if os.path.exists(PENDING_FILE):
+        try:
+            with open(PENDING_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_pending(data):
+    with open(PENDING_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+def pick_nft():
+    weights = [3 if n["special"] else 1 for n in NFTS]
+    return random.choices(NFTS, weights=weights, k=1)[0]
+
 def generate_post():
     name = random.choice(NAMES)
     uid = generate_uid()
     txid = generate_txid()
     network = random.choice(NETWORKS)
-    post_type = random.choice(["DEPOSIT", "WITHDRAWAL", "NFT BUY"])
-
     now = datetime.datetime.utcnow()
     date_str = now.strftime("%d %b %Y")
 
-    if post_type == "DEPOSIT":
-        amount = round(random.uniform(5.0, 500.0), 2)
-        return (
-            f"💎 <b>DEPOSIT VERIFIED</b>\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"👤 <b>User</b>     ›  {name}\n"
-            f"🆔 <b>UID</b>      ›  <code>{uid}</code>\n"
-            f"📅 <b>Date</b>     ›  {date_str}\n"
-            f"💰 <b>Amount</b>   ›  <b>${amount}</b>\n"
-            f"💵 <b>Asset</b>    ›  {ASSET}\n"
-            f"🌐 <b>Network</b>  ›  {network}\n"
-            f"🔗 <b>TXID</b>\n"
-            f"<code>{txid}</code>\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"✅ <b>STATUS: PAID</b>\n"
-            f"💳 <b>Paid by:</b> {BOT_USERNAME}"
-        )
-    elif post_type == "WITHDRAWAL":
-        amount = round(random.uniform(3.0, 300.0), 2)
-        return (
-            f"✅ <b>WITHDRAWAL APPROVED</b>\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"👤 <b>User</b>     ›  {name}\n"
-            f"🆔 <b>UID</b>      ›  <code>{uid}</code>\n"
-            f"📅 <b>Date</b>     ›  {date_str}\n"
-            f"💰 <b>Amount</b>   ›  <b>${amount}</b>\n"
-            f"💵 <b>Asset</b>    ›  {ASSET}\n"
-            f"🌐 <b>Network</b>  ›  {network}\n"
-            f"🔗 <b>TXID</b>\n"
-            f"<code>{txid}</code>\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"✅ <b>STATUS: PAID</b>\n"
-            f"💳 <b>Paid by:</b> {BOT_USERNAME}"
-        )
-    else:
-        weights = [3 if n["special"] else 1 for n in NFTS]
-        nft = random.choices(NFTS, weights=weights, k=1)[0]
-        nft_name = nft["name"]
-        nft_price = nft["price"]
-        if nft["special"]:
-            header = "🌟 <b>PREMIUM NFT PURCHASED</b>"
-            badge = "👑 <b>SPECIAL EDITION</b>"
+    pending = load_pending()
+
+    # ==========================================
+    # ১. আগের Processing থাকলে → Approved
+    # ==========================================
+    if pending:
+        item = pending.pop(0)
+        save_pending(pending)
+
+        if item["type"] == "deposit":
+            header = "🟢 <b>DEPOSIT APPROVED</b>"
+        elif item["type"] == "withdraw":
+            header = "🟢 <b>WITHDRAW APPROVED</b>"
         else:
-            header = "🖼️ <b>NFT PURCHASED</b>"
-            badge = "🏅 <b>VERIFIED PURCHASE</b>"
+            header = "🟣 <b>NFT ACTIVATED</b>" + (" 👑" if item.get("special") else "")
+
+        status_text = "Approved" if item["type"] != "nft" else "Active"
+
+        if item["type"] == "nft":
+            return (
+                f"{header}\n"
+                f"━━━━━━━━━━━━━━━\n"
+                f"🎁 <b>{item['nft_name']}</b>\n"
+                f"👤 {item['name']}\n"
+                f"🆔 <code>{item['uid']}</code>\n"
+                f"📅 {item['date']}\n"
+                f"💰 <b>${item['amount']}</b>  |  {ASSET}\n"
+                f"🌐 Network: {item['network']}\n"
+                f"🔗 <code>{item['txid']}</code>\n"
+                f"━━━━━━━━━━━━━━━\n"
+                f"✅ <b>Status:</b> {status_text}\n"
+                f"🔒 Activated by {BOT_USERNAME}\n"
+                f"💳 {BOT_USERNAME}"
+            )
+        else:
+            return (
+                f"{header}\n"
+                f"━━━━━━━━━━━━━━━\n"
+                f"👤 {item['name']}\n"
+                f"🆔 <code>{item['uid']}</code>\n"
+                f"📅 {item['date']}\n"
+                f"💰 <b>${item['amount']}</b>  |  {ASSET}\n"
+                f"🌐 Network: {item['network']}\n"
+                f"🔗 <code>{item['txid']}</code>\n"
+                f"━━━━━━━━━━━━━━━\n"
+                f"✅ <b>Status:</b> {status_text}\n"
+                f"🔒 Verified by {BOT_USERNAME}\n"
+                f"💳 {BOT_USERNAME}"
+            )
+
+    # ==========================================
+    # ২. নতুন Processing পোস্ট
+    # ==========================================
+    nft = pick_nft()
+    nft_name = nft["name"]
+    nft_price = nft["price"]
+    is_special = nft["special"]
+
+    action = random.choice(["deposit", "withdraw", "nft"])
+    amount = nft_price
+
+    if action == "deposit":
+        header = "🟡 <b>DEPOSIT PROCESSING</b>"
+        status_text = "Processing"
+        status_emoji = "⏳"
+        note = "🤖 Verifying on blockchain..."
+        post_type = "deposit"
+
+    elif action == "withdraw":
+        header = "🟡 <b>WITHDRAW PROCESSING</b>"
+        status_text = "Processing"
+        status_emoji = "⏳"
+        note = "🤖 Verifying on blockchain..."
+        post_type = "withdraw"
+
+    else:
+        header = "🟣 <b>NFT ACTIVATED</b>" + (" 👑" if is_special else "")
+        status_text = "Active"
+        status_emoji = "✅"
+        note = f"🔒 Activated by {BOT_USERNAME}"
+        post_type = "nft"
+
+    # Processing গুলো pending এ সেভ করি
+    if post_type in ["deposit", "withdraw"]:
+        pending = load_pending()
+        pending.append({
+            "type": post_type,
+            "name": name,
+            "uid": uid,
+            "txid": txid,
+            "date": date_str,
+            "amount": amount,
+            "network": network,
+        })
+        save_pending(pending)
+
+    # NFT হলে আলাদা ফরম্যাট
+    if post_type == "nft":
         return (
             f"{header}\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"🎁 <b>NFT</b>      ›  <b>{nft_name}</b>\n"
-            f"{badge}\n"
-            f"👤 <b>User</b>     ›  {name}\n"
-            f"🆔 <b>UID</b>      ›  <code>{uid}</code>\n"
-            f"📅 <b>Date</b>     ›  {date_str}\n"
-            f"💰 <b>Price</b>    ›  <b>${nft_price}</b>\n"
-            f"💵 <b>Asset</b>    ›  {ASSET}\n"
-            f"🌐 <b>Network</b>  ›  {network}\n"
-            f"🔗 <b>TXID</b>\n"
-            f"<code>{txid}</code>\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"✅ <b>STATUS: PAID</b>\n"
-            f"💳 <b>Paid by:</b> {BOT_USERNAME}"
+            f"━━━━━━━━━━━━━━━\n"
+            f"🎁 <b>{nft_name}</b>\n"
+            f"👤 {name}\n"
+            f"🆔 <code>{uid}</code>\n"
+            f"📅 {date_str}\n"
+            f"💰 <b>${amount}</b>  |  {ASSET}\n"
+            f"🌐 Network: {network}\n"
+            f"🔗 <code>{txid}</code>\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"{status_emoji} <b>Status:</b> {status_text}\n"
+            f"{note}\n"
+            f"💳 {BOT_USERNAME}"
+        )
+    else:
+        return (
+            f"{header}\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"👤 {name}\n"
+            f"🆔 <code>{uid}</code>\n"
+            f"📅 {date_str}\n"
+            f"💰 <b>${amount}</b>  |  {ASSET}\n"
+            f"🌐 Network: {network}\n"
+            f"🔗 <code>{txid}</code>\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"{status_emoji} <b>Status:</b> {status_text}\n"
+            f"{note}\n"
+            f"💳 {BOT_USERNAME}"
         )
 
-# ==========================================
-# নতুন লজিক: ১ মিনিটে ৫টা পোস্ট → ২ মিনিট রেস্ট → আবার ৫টা
-# ==========================================
 async def main():
     bot = Bot(token=BOT_TOKEN)
     print("🚀 বট চালু হয়েছে...")
-    print("📌 প্রতি সাইকেলে ৫টি পোস্ট হবে, তারপর ২ মিনিট রেস্ট।")
-
     while True:
-        # === ৫টি পোস্ট ===
-        for i in range(5):
-            try:
-                await bot.send_message(
-                    chat_id=CHANNEL_ID,
-                    text=generate_post(),
-                    parse_mode=ParseMode.HTML
-                )
-                print(f"✅ পোস্ট {i+1}/5 সফল: {datetime.datetime.now()}")
-            except Exception as e:
-                print(f"❌ পোস্ট {i+1} এরর: {e}")
-
-            # প্রতি পোস্টের মাঝে ১২ সেকেন্ড গ্যাপ
-            # (৫ পোস্ট × ১২ সেকেন্ড = ৬০ সেকেন্ড = ১ মিনিট)
-            if i < 4:
-                await asyncio.sleep(12)
-
-        # === ২ মিনিট রেস্ট ===
-        print(f"💤 ২ মিনিট রেস্ট: {datetime.datetime.now()}")
+        try:
+            await bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=generate_post(),
+                parse_mode=ParseMode.HTML
+            )
+            print(f"✅ পোস্ট সফল: {datetime.datetime.now()}")
+        except Exception as e:
+            print(f"❌ এরর: {e}")
         await asyncio.sleep(120)
 
 if __name__ == "__main__":
