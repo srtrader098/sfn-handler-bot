@@ -6,11 +6,9 @@ import asyncio
 from telegram import Bot
 from telegram.constants import ParseMode
 
-# ================= সেটিংস =================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
 BOT_USERNAME = "@SFN_MiningBot"
-# ==========================================
 
 NAMES = [
     "Liam Smith", "Zayd V.", "Aarav Sharma", "Budi Santoso", "Rahul Das",
@@ -52,7 +50,6 @@ def generate_post():
     now = datetime.datetime.utcnow()
     date_str = now.strftime("%d %b %Y")
 
-    # ========== DEPOSIT ==========
     if post_type == "DEPOSIT":
         amount = round(random.uniform(5.0, 500.0), 2)
         return (
@@ -70,8 +67,6 @@ def generate_post():
             f"✅ <b>STATUS: PAID</b>\n"
             f"💳 <b>Paid by:</b> {BOT_USERNAME}"
         )
-
-    # ========== WITHDRAWAL ==========
     elif post_type == "WITHDRAWAL":
         amount = round(random.uniform(3.0, 300.0), 2)
         return (
@@ -89,21 +84,17 @@ def generate_post():
             f"✅ <b>STATUS: PAID</b>\n"
             f"💳 <b>Paid by:</b> {BOT_USERNAME}"
         )
-
-    # ========== NFT BUY ==========
     else:
         weights = [3 if n["special"] else 1 for n in NFTS]
         nft = random.choices(NFTS, weights=weights, k=1)[0]
         nft_name = nft["name"]
         nft_price = nft["price"]
-
         if nft["special"]:
             header = "🌟 <b>PREMIUM NFT PURCHASED</b>"
             badge = "👑 <b>SPECIAL EDITION</b>"
         else:
             header = "🖼️ <b>NFT PURCHASED</b>"
             badge = "🏅 <b>VERIFIED PURCHASE</b>"
-
         return (
             f"{header}\n"
             f"━━━━━━━━━━━━━━━━━━\n"
@@ -124,15 +115,18 @@ def generate_post():
 
 async def main():
     bot = Bot(token=BOT_TOKEN)
-    try:
-        await bot.send_message(
-            chat_id=CHANNEL_ID,
-            text=generate_post(),
-            parse_mode=ParseMode.HTML
-        )
-        print(f"✅ পোস্ট সফল: {datetime.datetime.now()}")
-    except Exception as e:
-        print(f"❌ এরর: {e}")
+    print("🚀 বট চালু হয়েছে... প্রতি ২ মিনিটে পোস্ট হবে...")
+    while True:
+        try:
+            await bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=generate_post(),
+                parse_mode=ParseMode.HTML
+            )
+            print(f"✅ পোস্ট সফল: {datetime.datetime.now()}")
+        except Exception as e:
+            print(f"❌ এরর: {e}")
+        await asyncio.sleep(120)  # ২ মিনিট
 
 if __name__ == "__main__":
     asyncio.run(main())
