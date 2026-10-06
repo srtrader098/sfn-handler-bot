@@ -39,8 +39,11 @@ PENDING_FILE = "pending.json"
 def generate_uid():
     return f"62{''.join(random.choices(string.digits, k=7))}"
 
-def generate_txid():
+def generate_full_txid():
     return ''.join(random.choices("0123456789abcdef", k=64))
+
+def short_txid(full):
+    return f"{full[:8]}...{full[-8:]}"
 
 def load_pending():
     if os.path.exists(PENDING_FILE):
@@ -59,10 +62,22 @@ def pick_nft():
     weights = [3 if n["special"] else 1 for n in NFTS]
     return random.choices(NFTS, weights=weights, k=1)[0]
 
+def build_post(header, body_lines, status_emoji, status_text, footer_note):
+    body = "\n".join(body_lines)
+    return (
+        f"{header}\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"{body}\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"{status_emoji} <b>Status:</b> {status_text}\n"
+        f"{footer_note}"
+    )
+
 def generate_post():
     name = random.choice(NAMES)
     uid = generate_uid()
-    txid = generate_txid()
+    full_txid = generate_full_txid()
+    txid = short_txid(full_txid)
     network = random.choice(NETWORKS)
     now = datetime.datetime.utcnow()
     date_str = now.strftime("%d %b %Y")
@@ -76,45 +91,43 @@ def generate_post():
         item = pending.pop(0)
         save_pending(pending)
 
-        if item["type"] == "deposit":
-            header = "🟢 <b>DEPOSIT APPROVED</b>"
-        elif item["type"] == "withdraw":
-            header = "🟢 <b>WITHDRAW APPROVED</b>"
-        else:
-            header = "🟣 <b>NFT ACTIVATED</b>" + (" 👑" if item.get("special") else "")
-
-        status_text = "Approved" if item["type"] != "nft" else "Active"
-
+        # === NFT ===
         if item["type"] == "nft":
-            return (
-                f"{header}\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"🎁 <b>{item['nft_name']}</b>\n"
-                f"👤 {item['name']}\n"
-                f"🆔 <code>{item['uid']}</code>\n"
-                f"📅 {item['date']}\n"
-                f"💰 <b>${item['amount']}</b>  |  {ASSET}\n"
-                f"🌐 Network: {item['network']}\n"
-                f"🔗 <code>{item['txid']}</code>\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"✅ <b>Status:</b> {status_text}\n"
-                f"🔒 Activated by {BOT_USERNAME}\n"
-                f"💳 {BOT_USERNAME}"
+            header = "🟣 <b>NFT ACTIVATED</b>" + (" 👑" if item.get("special") else "")
+            body_lines = [
+                f"🎁 <b>NFT:</b> {item['nft_name']}",
+                f"👤 <b>User:</b> {item['name']}",
+                f"🆔 <b>UID:</b> <code>{item['uid']}</code>",
+                f"📅 <b>Date:</b> {item['date']}",
+                f"💰 <b>Amount:</b> <b>${item['amount']}</b> | {ASSET}",
+                f"🌐 <b>Network:</b> {item['network']}",
+                f"🔗 <b>TXID:</b> <code>{item['txid']}</code>",
+            ]
+            return build_post(
+                header, body_lines,
+                "✅", "Active",
+                f"🤖 <b>Activated by</b> {BOT_USERNAME}"
             )
+
+        # === Deposit / Withdraw ===
         else:
-            return (
-                f"{header}\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"👤 {item['name']}\n"
-                f"🆔 <code>{item['uid']}</code>\n"
-                f"📅 {item['date']}\n"
-                f"💰 <b>${item['amount']}</b>  |  {ASSET}\n"
-                f"🌐 Network: {item['network']}\n"
-                f"🔗 <code>{item['txid']}</code>\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"✅ <b>Status:</b> {status_text}\n"
-                f"🔒 Verified by {BOT_USERNAME}\n"
-                f"💳 {BOT_USERNAME}"
+            if item["type"] == "deposit":
+                header = "🟢 <b>DEPOSIT APPROVED</b>"
+            else:
+                header = "🟢 <b>WITHDRAW APPROVED</b>"
+
+            body_lines = [
+                f"👤 <b>User:</b> {item['name']}",
+                f"🆔 <b>UID:</b> <code>{item['uid']}</code>",
+                f"📅 <b>Date:</b> {item['date']}",
+                f"💰 <b>Amount:</b> <b>${item['amount']}</b> | {ASSET}",
+                f"🌐 <b>Network:</b> {item['network']}",
+                f"🔗 <b>TXID:</b> <code>{item['txid']}</code>",
+            ]
+            return build_post(
+                header, body_lines,
+                "✅", "Approved",
+                f"🤖 <b>Verified by</b> {BOT_USERNAME}"
             )
 
     # ==========================================
@@ -124,76 +137,59 @@ def generate_post():
     nft_name = nft["name"]
     nft_price = nft["price"]
     is_special = nft["special"]
+    amount = nft_price
 
     action = random.choice(["deposit", "withdraw", "nft"])
-    amount = nft_price
 
     if action == "deposit":
         header = "🟡 <b>DEPOSIT PROCESSING</b>"
-        status_text = "Processing"
-        status_emoji = "⏳"
-        note = "🤖 Verifying on blockchain..."
-        post_type = "deposit"
+        body_lines = [
+            f"👤 <b>User:</b> {name}",
+            f"🆔 <b>UID:</b> <code>{uid}</code>",
+            f"📅 <b>Date:</b> {date_str}",
+            f"💰 <b>Amount:</b> <b>${amount}</b> | {ASSET}",
+            f"🌐 <b>Network:</b> {network}",
+            f"🔗 <b>TXID:</b> <code>{txid}</code>",
+        ]
+        return build_post(
+            header, body_lines,
+            "⏳", "Processing",
+            "🤖 Verifying on blockchain...\n"
+            f"💳 {BOT_USERNAME}"
+        )
 
     elif action == "withdraw":
         header = "🟡 <b>WITHDRAW PROCESSING</b>"
-        status_text = "Processing"
-        status_emoji = "⏳"
-        note = "🤖 Verifying on blockchain..."
-        post_type = "withdraw"
+        body_lines = [
+            f"👤 <b>User:</b> {name}",
+            f"🆔 <b>UID:</b> <code>{uid}</code>",
+            f"📅 <b>Date:</b> {date_str}",
+            f"💰 <b>Amount:</b> <b>${amount}</b> | {ASSET}",
+            f"🌐 <b>Network:</b> {network}",
+            f"🔗 <b>TXID:</b> <code>{txid}</code>",
+        ]
+        return build_post(
+            header, body_lines,
+            "⏳", "Processing",
+            "🤖 Verifying on blockchain...\n"
+            f"💳 {BOT_USERNAME}"
+        )
 
     else:
         header = "🟣 <b>NFT ACTIVATED</b>" + (" 👑" if is_special else "")
-        status_text = "Active"
-        status_emoji = "✅"
-        note = f"🔒 Activated by {BOT_USERNAME}"
-        post_type = "nft"
-
-    # Processing গুলো pending এ সেভ করি
-    if post_type in ["deposit", "withdraw"]:
-        pending = load_pending()
-        pending.append({
-            "type": post_type,
-            "name": name,
-            "uid": uid,
-            "txid": txid,
-            "date": date_str,
-            "amount": amount,
-            "network": network,
-        })
-        save_pending(pending)
-
-    # NFT হলে আলাদা ফরম্যাট
-    if post_type == "nft":
-        return (
-            f"{header}\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"🎁 <b>{nft_name}</b>\n"
-            f"👤 {name}\n"
-            f"🆔 <code>{uid}</code>\n"
-            f"📅 {date_str}\n"
-            f"💰 <b>${amount}</b>  |  {ASSET}\n"
-            f"🌐 Network: {network}\n"
-            f"🔗 <code>{txid}</code>\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"{status_emoji} <b>Status:</b> {status_text}\n"
-            f"{note}\n"
-            f"💳 {BOT_USERNAME}"
-        )
-    else:
-        return (
-            f"{header}\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"👤 {name}\n"
-            f"🆔 <code>{uid}</code>\n"
-            f"📅 {date_str}\n"
-            f"💰 <b>${amount}</b>  |  {ASSET}\n"
-            f"🌐 Network: {network}\n"
-            f"🔗 <code>{txid}</code>\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"{status_emoji} <b>Status:</b> {status_text}\n"
-            f"{note}\n"
-            f"💳 {BOT_USERNAME}"
+        body_lines = [
+            f"🎁 <b>NFT:</b> {nft_name}",
+            f"👤 <b>User:</b> {name}",
+            f"🆔 <b>UID:</b> <code>{uid}</code>",
+            f"📅 <b>Date:</b> {date_str}",
+            f"💰 <b>Amount:</b> <b>${amount}</b> | {ASSET}",
+            f"🌐 <b>Network:</b> {network}",
+            f"🔗 <b>TXID:</b> <code>{txid}</code>",
+        ]
+        return build_post(
+            header, body_lines,
+            "✅", "Active",
+            f"🤖 <b>Activated by</b> {BOT_USERNAME}"
         )
 
 async def main():
