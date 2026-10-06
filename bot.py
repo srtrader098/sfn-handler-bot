@@ -1,8 +1,8 @@
 import random
 import string
 import datetime
-import asyncio
 import os
+import asyncio
 from telegram import Bot
 from telegram.constants import ParseMode
 
@@ -10,7 +10,6 @@ from telegram.constants import ParseMode
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
 BOT_USERNAME = "@SFN_MiningBot"
-POST_INTERVAL = 1800   # ৩০ মিনিট (সেকেন্ডে)
 # ==========================================
 
 NAMES = [
@@ -41,11 +40,9 @@ def generate_post():
     network = random.choice(NETWORKS)
     post_type = random.choice(["DEPOSIT", "WITHDRAWAL", "NFT BUY"])
 
-    # শুধু Date (Time ছাড়া)
     now = datetime.datetime.utcnow()
     date_str = now.strftime("%d %b %Y")
 
-    # প্রিমিয়াম হেডার
     if post_type == "DEPOSIT":
         header = "💎 <b>DEPOSIT VERIFIED</b>"
         sub = "🔒 <i>Transaction Successfully Confirmed</i>"
@@ -77,18 +74,15 @@ def generate_post():
 
 async def main():
     bot = Bot(token=BOT_TOKEN)
-    print("🚀 বট চালু হয়েছে...")
-    while True:
-        try:
-            await bot.send_message(
-                chat_id=CHANNEL_ID,
-                text=generate_post(),
-                parse_mode=ParseMode.HTML
-            )
-            print(f"✅ পোস্ট সফল: {datetime.datetime.now()}")
-        except Exception as e:
-            print(f"❌ এরর: {e}")
-        await asyncio.sleep(POST_INTERVAL)
+    try:
+        await bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=generate_post(),
+            parse_mode=ParseMode.HTML
+        )
+        print(f"✅ পোস্ট সফল: {datetime.datetime.now()}")
+    except Exception as e:
+        print(f"❌ এরর: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
