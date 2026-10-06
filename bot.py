@@ -35,6 +35,7 @@ NFTS = [
 NETWORKS = ["TON", "TRC20", "ERC20", "BNB Smart Chain (BEP20)", "SOL", "POL"]
 ASSET = "USDT"
 PENDING_FILE = "pending.json"
+MAX_PENDING = 3   # সর্বোচ্চ ৩টি Processing থাকবে
 
 def generate_uid():
     return f"62{''.join(random.choices(string.digits, k=7))}"
@@ -73,124 +74,124 @@ def build_post(header, body_lines, status_emoji, status_text, footer_note):
         f"{footer_note}"
     )
 
+def make_processing(name, uid, txid, network, date_str, ptype, amount):
+    if ptype == "deposit":
+        header = "🟡 <b>DEPOSIT PROCESSING</b>"
+    else:
+        header = "🟡 <b>WITHDRAW PROCESSING</b>"
+
+    body_lines = [
+        f"👤 <b>User:</b> {name}",
+        f"🆔 <b>UID:</b> <code>{uid}</code>",
+        f"📅 <b>Date:</b> {date_str}",
+        f"💰 <b>Amount:</b> <b>${amount}</b> | {ASSET}",
+        f"🌐 <b>Network:</b> {network}",
+        f"🔗 <b>TXID:</b> <code>{txid}</code>",
+    ]
+    return build_post(
+        header, body_lines,
+        "⏳", "Processing",
+        "🤖 Verifying on blockchain...\n"
+        f"💳 {BOT_USERNAME}"
+    )
+
+def make_approved(item):
+    if item["type"] == "deposit":
+        header = "🟢 <b>DEPOSIT APPROVED</b>"
+    else:
+        header = "🟢 <b>WITHDRAW APPROVED</b>"
+
+    body_lines = [
+        f"👤 <b>User:</b> {item['name']}",
+        f"🆔 <b>UID:</b> <code>{item['uid']}</code>",
+        f"📅 <b>Date:</b> {item['date']}",
+        f"💰 <b>Amount:</b> <b>${item['amount']}</b> | {ASSET}",
+        f"🌐 <b>Network:</b> {item['network']}",
+        f"🔗 <b>TXID:</b> <code>{item['txid']}</code>",
+    ]
+    return build_post(
+        header, body_lines,
+        "✅", "Approved",
+        f"🤖 <b>Verified by</b> {BOT_USERNAME}"
+    )
+
+def make_nft(nft):
+    header = "🟣 <b>NFT ACTIVATED</b>" + (" 👑" if nft["special"] else "")
+    name = random.choice(NAMES)
+    uid = generate_uid()
+    txid = short_txid(generate_full_txid())
+    network = random.choice(NETWORKS)
+    date_str = datetime.datetime.utcnow().strftime("%d %b %Y")
+
+    body_lines = [
+        f"🎁 <b>NFT:</b> {nft['name']}",
+        f"👤 <b>User:</b> {name}",
+        f"🆔 <b>UID:</b> <code>{uid}</code>",
+        f"📅 <b>Date:</b> {date_str}",
+        f"💰 <b>Amount:</b> <b>${nft['price']}</b> | {ASSET}",
+        f"🌐 <b>Network:</b> {network}",
+        f"🔗 <b>TXID:</b> <code>{txid}</code>",
+    ]
+    return build_post(
+        header, body_lines,
+        "✅", "Active",
+        f"🤖 <b>Activated by</b> {BOT_USERNAME}"
+    )
+
 def generate_post():
     name = random.choice(NAMES)
     uid = generate_uid()
-    full_txid = generate_full_txid()
-    txid = short_txid(full_txid)
+    txid = short_txid(generate_full_txid())
     network = random.choice(NETWORKS)
-    now = datetime.datetime.utcnow()
-    date_str = now.strftime("%d %b %Y")
+    date_str = datetime.datetime.utcnow().strftime("%d %b %Y")
 
     pending = load_pending()
+    nft = pick_nft()
+    amount = nft["price"]
 
     # ==========================================
-    # ১. আগের Processing থাকলে → Approved
+    # লজিক: ৩টি পোস্টের মধ্যে মিক্স
+    # pending ৩টির বেশি হলে → Approved বাধ্যতামূলক
+    # pending ০ হলে → Processing বাধ্যতামূলক
     # ==========================================
-    if pending:
+
+    if len(pending) >= MAX_PENDING:
+        # বাধ্যতামূলক Approved
         item = pending.pop(0)
         save_pending(pending)
+        return make_approved(item)
 
-        # === NFT ===
-        if item["type"] == "nft":
-            header = "🟣 <b>NFT ACTIVATED</b>" + (" 👑" if item.get("special") else "")
-            body_lines = [
-                f"🎁 <b>NFT:</b> {item['nft_name']}",
-                f"👤 <b>User:</b> {item['name']}",
-                f"🆔 <b>UID:</b> <code>{item['uid']}</code>",
-                f"📅 <b>Date:</b> {item['date']}",
-                f"💰 <b>Amount:</b> <b>${item['amount']}</b> | {ASSET}",
-                f"🌐 <b>Network:</b> {item['network']}",
-                f"🔗 <b>TXID:</b> <code>{item['txid']}</code>",
-            ]
-            return build_post(
-                header, body_lines,
-                "✅", "Active",
-                f"🤖 <b>Activated by</b> {BOT_USERNAME}"
-            )
+    # র‍্যান্ডম সিদ্ধান্ত: ৪০% Processing, ৩০% Approved, ৩০% NFT
+    roll = random.randint(1, 100)
 
-        # === Deposit / Withdraw ===
-        else:
-            if item["type"] == "deposit":
-                header = "🟢 <b>DEPOSIT APPROVED</b>"
-            else:
-                header = "🟢 <b>WITHDRAW APPROVED</b>"
+    # pending খালি হলে Approved হবে না
+    if len(pending) == 0:
+        roll = 50 if roll <= 30 else roll   # Processing বা NFT
 
-            body_lines = [
-                f"👤 <b>User:</b> {item['name']}",
-                f"🆔 <b>UID:</b> <code>{item['uid']}</code>",
-                f"📅 <b>Date:</b> {item['date']}",
-                f"💰 <b>Amount:</b> <b>${item['amount']}</b> | {ASSET}",
-                f"🌐 <b>Network:</b> {item['network']}",
-                f"🔗 <b>TXID:</b> <code>{item['txid']}</code>",
-            ]
-            return build_post(
-                header, body_lines,
-                "✅", "Approved",
-                f"🤖 <b>Verified by</b> {BOT_USERNAME}"
-            )
+    if roll <= 40:
+        # নতুন Processing
+        ptype = random.choice(["deposit", "withdraw"])
+        pending.append({
+            "type": ptype,
+            "name": name,
+            "uid": uid,
+            "txid": txid,
+            "date": date_str,
+            "amount": amount,
+            "network": network,
+        })
+        save_pending(pending)
+        return make_processing(name, uid, txid, network, date_str, ptype, amount)
 
-    # ==========================================
-    # ২. নতুন Processing পোস্ট
-    # ==========================================
-    nft = pick_nft()
-    nft_name = nft["name"]
-    nft_price = nft["price"]
-    is_special = nft["special"]
-    amount = nft_price
-
-    action = random.choice(["deposit", "withdraw", "nft"])
-
-    if action == "deposit":
-        header = "🟡 <b>DEPOSIT PROCESSING</b>"
-        body_lines = [
-            f"👤 <b>User:</b> {name}",
-            f"🆔 <b>UID:</b> <code>{uid}</code>",
-            f"📅 <b>Date:</b> {date_str}",
-            f"💰 <b>Amount:</b> <b>${amount}</b> | {ASSET}",
-            f"🌐 <b>Network:</b> {network}",
-            f"🔗 <b>TXID:</b> <code>{txid}</code>",
-        ]
-        return build_post(
-            header, body_lines,
-            "⏳", "Processing",
-            "🤖 Verifying on blockchain...\n"
-            f"💳 {BOT_USERNAME}"
-        )
-
-    elif action == "withdraw":
-        header = "🟡 <b>WITHDRAW PROCESSING</b>"
-        body_lines = [
-            f"👤 <b>User:</b> {name}",
-            f"🆔 <b>UID:</b> <code>{uid}</code>",
-            f"📅 <b>Date:</b> {date_str}",
-            f"💰 <b>Amount:</b> <b>${amount}</b> | {ASSET}",
-            f"🌐 <b>Network:</b> {network}",
-            f"🔗 <b>TXID:</b> <code>{txid}</code>",
-        ]
-        return build_post(
-            header, body_lines,
-            "⏳", "Processing",
-            "🤖 Verifying on blockchain...\n"
-            f"💳 {BOT_USERNAME}"
-        )
+    elif roll <= 70:
+        # Approved
+        item = pending.pop(0)
+        save_pending(pending)
+        return make_approved(item)
 
     else:
-        header = "🟣 <b>NFT ACTIVATED</b>" + (" 👑" if is_special else "")
-        body_lines = [
-            f"🎁 <b>NFT:</b> {nft_name}",
-            f"👤 <b>User:</b> {name}",
-            f"🆔 <b>UID:</b> <code>{uid}</code>",
-            f"📅 <b>Date:</b> {date_str}",
-            f"💰 <b>Amount:</b> <b>${amount}</b> | {ASSET}",
-            f"🌐 <b>Network:</b> {network}",
-            f"🔗 <b>TXID:</b> <code>{txid}</code>",
-        ]
-        return build_post(
-            header, body_lines,
-            "✅", "Active",
-            f"🤖 <b>Activated by</b> {BOT_USERNAME}"
-        )
+        # NFT
+        return make_nft(nft)
 
 async def main():
     bot = Bot(token=BOT_TOKEN)
