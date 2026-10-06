@@ -2,12 +2,13 @@ name: SFN Auto Poster
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
