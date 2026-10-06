@@ -6,9 +6,11 @@ import asyncio
 from telegram import Bot
 from telegram.constants import ParseMode
 
+# ================= সেটিংস =================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
 BOT_USERNAME = "@SFN_MiningBot"
+# ==========================================
 
 NAMES = [
     "Liam Smith", "Zayd V.", "Aarav Sharma", "Budi Santoso", "Rahul Das",
@@ -113,20 +115,35 @@ def generate_post():
             f"💳 <b>Paid by:</b> {BOT_USERNAME}"
         )
 
+# ==========================================
+# নতুন লজিক: ১ মিনিটে ৫টা পোস্ট → ২ মিনিট রেস্ট → আবার ৫টা
+# ==========================================
 async def main():
     bot = Bot(token=BOT_TOKEN)
-    print("🚀 বট চালু হয়েছে... প্রতি ২ মিনিটে পোস্ট হবে...")
+    print("🚀 বট চালু হয়েছে...")
+    print("📌 প্রতি সাইকেলে ৫টি পোস্ট হবে, তারপর ২ মিনিট রেস্ট।")
+
     while True:
-        try:
-            await bot.send_message(
-                chat_id=CHANNEL_ID,
-                text=generate_post(),
-                parse_mode=ParseMode.HTML
-            )
-            print(f"✅ পোস্ট সফল: {datetime.datetime.now()}")
-        except Exception as e:
-            print(f"❌ এরর: {e}")
-        await asyncio.sleep(120)  # ২ মিনিট
+        # === ৫টি পোস্ট ===
+        for i in range(5):
+            try:
+                await bot.send_message(
+                    chat_id=CHANNEL_ID,
+                    text=generate_post(),
+                    parse_mode=ParseMode.HTML
+                )
+                print(f"✅ পোস্ট {i+1}/5 সফল: {datetime.datetime.now()}")
+            except Exception as e:
+                print(f"❌ পোস্ট {i+1} এরর: {e}")
+
+            # প্রতি পোস্টের মাঝে ১২ সেকেন্ড গ্যাপ
+            # (৫ পোস্ট × ১২ সেকেন্ড = ৬০ সেকেন্ড = ১ মিনিট)
+            if i < 4:
+                await asyncio.sleep(12)
+
+        # === ২ মিনিট রেস্ট ===
+        print(f"💤 ২ মিনিট রেস্ট: {datetime.datetime.now()}")
+        await asyncio.sleep(120)
 
 if __name__ == "__main__":
     asyncio.run(main())
