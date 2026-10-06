@@ -6,10 +6,12 @@ import os
 from telegram import Bot
 from telegram.constants import ParseMode
 
+# ================= সেটিংস =================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
 BOT_USERNAME = "@SFN_MiningBot"
-POST_INTERVAL = 1800
+POST_INTERVAL = 1800   # ৩০ মিনিট (সেকেন্ডে)
+# ==========================================
 
 NAMES = [
     "Liam Smith", "Zayd V.", "Aarav Sharma", "Budi Santoso", "Rahul Das",
@@ -39,24 +41,37 @@ def generate_post():
     network = random.choice(NETWORKS)
     post_type = random.choice(["DEPOSIT", "WITHDRAWAL", "NFT BUY"])
 
+    # শুধু Date (Time ছাড়া)
+    now = datetime.datetime.utcnow()
+    date_str = now.strftime("%d %b %Y")
+
+    # প্রিমিয়াম হেডার
     if post_type == "DEPOSIT":
-        header = "🎉 <b>NEW DEPOSIT CONFIRMED!</b>"
+        header = "💎 <b>DEPOSIT VERIFIED</b>"
+        sub = "🔒 <i>Transaction Successfully Confirmed</i>"
     elif post_type == "WITHDRAWAL":
-        header = "✅ <b>WITHDRAWAL COMPLETE!</b>"
+        header = "✅ <b>WITHDRAWAL APPROVED</b>"
+        sub = "🔒 <i>Payment Successfully Processed</i>"
     else:
-        header = "🖼️ <b>NFT PURCHASE SUCCESS!</b>"
+        header = "🖼️ <b>NFT PURCHASED</b>"
+        sub = "🔒 <i>Asset Successfully Transferred</i>"
 
     return (
-        f"{header}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 <b>User:</b> {name}\n"
-        f"🆔 <b>UID:</b> <code>{uid}</code>\n\n"
-        f"💰 <b>Amount:</b> ${amount}\n"
-        f"💎 <b>Asset:</b> {ASSET}\n"
-        f"🌐 <b>Network:</b> {network}\n"
-        f"🔗 <b>TXID:</b> <code>{txid}</code>\n\n"
-        f"✅ <b>Status:</b> PAID\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"┏━━━━━━━━━━━━━━━━━━━━┓\n"
+        f"   {header}\n"
+        f"   {sub}\n"
+        f"┗━━━━━━━━━━━━━━━━━━━━┛\n\n"
+        f"👤 <b>User</b>       ➜  {name}\n"
+        f"🆔 <b>UID</b>        ➜  <code>{uid}</code>\n"
+        f"📅 <b>Date</b>       ➜  {date_str}\n\n"
+        f"💰 <b>Amount</b>     ➜  <b>${amount}</b>\n"
+        f"💵 <b>Asset</b>      ➜  {ASSET}\n"
+        f"🌐 <b>Network</b>    ➜  {network}\n\n"
+        f"🔗 <b>TXID</b>\n"
+        f"<code>{txid}</code>\n\n"
+        f"┌────────────────────┐\n"
+        f"   ✅ <b>STATUS: PAID</b> ✅\n"
+        f"└────────────────────┘\n\n"
         f"💳 <b>Paid by:</b> {BOT_USERNAME}"
     )
 
@@ -65,7 +80,11 @@ async def main():
     print("🚀 বট চালু হয়েছে...")
     while True:
         try:
-            await bot.send_message(chat_id=CHANNEL_ID, text=generate_post(), parse_mode=ParseMode.HTML)
+            await bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=generate_post(),
+                parse_mode=ParseMode.HTML
+            )
             print(f"✅ পোস্ট সফল: {datetime.datetime.now()}")
         except Exception as e:
             print(f"❌ এরর: {e}")
